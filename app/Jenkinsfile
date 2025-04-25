@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    environment {
+        COMPOSE_PROJECT_NAME = 'restaurant-recommender'  // Matches your compose file
+    }
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker-compose build'
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                bat 'docker-compose up -d'
+            }
+        }
+
+        stage('Verify Container') {
+            steps {
+                bat '''
+                    docker ps --filter name=restaurant-container
+                    timeout /t 5 > nul  // Short pause
+                    docker exec restaurant-container python -c "import pandas as pd; print(\"System dependencies OK!\")"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            bat 'docker-compose down'
+            echo 'Pipeline completed!'
+        }
+    }
+}
