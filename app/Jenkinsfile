@@ -2,28 +2,54 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_PROJECT_NAME = 'restaurant-recommender'  // Matches your compose file
+        // Use forward slashes for cross-platform compatibility
+        REPO_URL = 'https://github.com/051821/Recommender-sys.git'
+        BRANCH = 'main'
+        WORKSPACE = env.WORKSPACE.replace('\\', '/') // Normalize path
     }
 
     stages {
+        stage('Checkout Code') {
+            steps {
+                script {
+                    // Clean workspace first
+                    bat 'if exist Recommender-sys rmdir /s /q Recommender-sys'
+                    
+                    // Clone repository (public repo - no credentials needed)
+                    bat """
+                        git clone --depth 1 --branch %BRANCH% %REPO_URL%
+                        cd Recommender-sys
+                        git status
+                    """
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                bat 'docker-compose build'
+                bat '''
+                    cd Recommender-sys
+                    docker-compose build
+                '''
             }
         }
 
-        stage('Run Container') {
-            steps {
-                bat 'docker-compose up -d'
-            }
-        }
-
-        stage('Verify Container') {
+        stage('Run Containers') {
             steps {
                 bat '''
-                    docker ps --filter name=restaurant-container
-                    timeout /t 5 > nul  // Short pause
-                    docker exec restaurant-container python -c "import pandas as pd; print(\"System dependencies OK!\")"
+                    cd Recommender-sys
+                    docker-compose up -d
+                    timeout /t 10 /nobreak  // Wait for containers to initialize
+                '''
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                bat '''
+                    cd Recommender-sys
+                    docker ps --filter name=restaurant
+                    docker exec restaurant-container python -c "import pandas as pd; print('System ready!')"
                 '''
             }
         }
@@ -31,8 +57,18 @@ pipeline {
 
     post {
         always {
-            bat 'docker-compose down'
-            echo 'Pipeline completed!'
+            bat '''
+                cd Recommender-sys 2>nul && docker-compose down -v
+                docker system prune -f
+            '''
+            cleanWs()
+        }
+        failure {
+            emailext (
+                subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                body: "Check console output at ${env.BUILD_URL}console",
+                to: 'your-email@example.com'
+            )
         }
     }
 }
