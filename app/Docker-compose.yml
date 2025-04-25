@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  recommender:
+    build: .  # Uses the Dockerfile in your current directory (devpro2/app)
+    image: restaurant-recommender:latest
+    container_name: restaurant-container
+    ports:
+      - "8888:8888"  # For Jupyter Notebook (optional)
+    volumes:
+      - .:/app  # Mount current directory to /app
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Choose ONE of these commands:
+    #command: python restaurant_recommender.py  # Default: run script directly
+    command: ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]  # Uncomment for Jupyter
+    networks:
+      - recommender-network
+
+networks:
+  recommender-network:
+    driver: bridge
