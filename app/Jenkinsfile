@@ -4,142 +4,46 @@ pipeline {
     environment {
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
-        DOCKER_COMPOSE_DIR = 'Recommender-sys/app'
+        APP_DIR = 'Recommender-sys/app'  // Adjust if needed
     }
 
     stages {
-        stage('Initialize') {
+        stage('Clone Repository') {
             steps {
-                script {
-                    // Verify Git is available
-                    bat '''
-                        @echo off
-                        where git || (
-                            echo ERROR: Git is not installed or not in PATH
-                            exit /b 1
-                        )
-                        echo Git is available at:
-                        where git
-                    '''
-                }
+                git branch: "${BRANCH}", url: "${REPO_URL}"
             }
         }
 
-        stage('Checkout Code') {
+        stage('Build Docker Containers') {
             steps {
-                script {
-                    cleanWs()
-                    
-                    // Use Jenkins' built-in SCM checkout instead of manual git clone
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/${BRANCH}"]],
-                        extensions: [],
-                        userRemoteConfigs: [[url: "${REPO_URL}"]]
-                    ])
-                    
-                    // Verify checkout
-                    bat '''
-                        @echo off
-                        echo Repository contents:
-                        dir /b
-                        if not exist "Recommender-sys" (
-                            echo ERROR: Repository structure not as expected
-                            exit /b 1
-                        )
-                    '''
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    bat """
-                        @echo off
-                        cd "${DOCKER_COMPOSE_DIR}" || (
-                            echo ERROR: Cannot find ${DOCKER_COMPOSE_DIR} directory
-                            exit /b 1
-                        )
-                        docker-compose --version || (
-                            echo ERROR: docker-compose not available
-                            exit /b 1
-                        )
-                        echo Building Docker images...
-                        docker-compose build || (
-                            echo ERROR: Docker build failed
-                            exit /b 1
-                        )
-                    """
+                dir("${APP_DIR}") {
+                    bat 'docker-compose build'
                 }
             }
         }
 
         stage('Run Containers') {
             steps {
-                script {
-                    bat """
-                        @echo off
-                        cd "${DOCKER_COMPOSE_DIR}"
-                        echo Starting containers...
-                        docker-compose up -d || (
-                            echo ERROR: Failed to start containers
-                            exit /b 1
-                        )
-                        echo Waiting for containers to initialize...
-                        timeout /t 30 /nobreak >nul
-                        docker-compose ps
-                    """
+                dir("${APP_DIR}") {
+                    bat 'docker-compose up -d'
                 }
             }
         }
 
-        stage('Verify') {
+        stage('Verify Containers') {
             steps {
-                script {
-                    bat """
-                        @echo off
-                        cd "${DOCKER_COMPOSE_DIR}"
-                        echo Running system checks...
-                        docker ps --filter name=restaurant
-                        docker exec restaurant-container python -c "import pandas as pd; print('System ready!')" || (
-                            echo ERROR: Verification failed
-                            exit /b 1
-                        )
-                    """
-                }
+                bat 'docker ps'
             }
         }
     }
 
     post {
         always {
-            script {
-                bat """
-                    @echo off
-                    echo Cleaning up...
-                    cd "${DOCKER_COMPOSE_DIR}" 2>nul && (
-                        docker-compose down -v
-                    )
-                    docker system prune -f
-                """
-                cleanWs()
+            echo 'Cleaning up Docker containers...'
+            dir("${APP_DIR}") {
+                bat 'docker-compose down -v'
             }
-        }
-        failure {
-            script {
-                // Fixed email address (was gmsil.com instead of gmail.com)
-                emailext (
-                    subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
-                    body: """Check console output at ${env.BUILD_URL}console
-                    
-                    Build Log: ${env.BUILD_URL}consoleText
-                    
-                    Failed stage: ${currentBuild.result}""",
-                    to: 'anushkasagar302@gmail.com',
-                    attachLog: true
-                )
-            }
+            cleanWs()
         }
     }
 }
