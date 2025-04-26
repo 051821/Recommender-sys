@@ -4,7 +4,7 @@ pipeline {
     environment {
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
-        APP_DIR = 'Recommender-sys'  // Adjust if needed
+        APP_DIR = 'Recommender-sys/app'  // Adjust if needed
     }
 
     stages {
