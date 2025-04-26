@@ -10,14 +10,20 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: "${BRANCH}", url: "${REPO_URL}"
+                script {
+                    echo "Cloning repository from ${REPO_URL}..."
+                    git branch: "${BRANCH}", url: "${REPO_URL}"
+                }
             }
         }
 
         stage('Build Docker Containers') {
             steps {
                 dir("${APP_DIR}") {
-                    bat 'docker-compose build'
+                    script {
+                        echo "Building Docker containers..."
+                        bat 'docker-compose -f docker-compose.yml build'  // Explicitly specify the config file
+                    }
                 }
             }
         }
@@ -25,14 +31,20 @@ pipeline {
         stage('Run Containers') {
             steps {
                 dir("${APP_DIR}") {
-                    bat 'docker-compose up -d'
+                    script {
+                        echo "Running Docker containers..."
+                        bat 'docker-compose -f docker-compose.yml up -d'  // Explicitly specify the config file
+                    }
                 }
             }
         }
 
         stage('Verify Containers') {
             steps {
-                bat 'docker ps'
+                script {
+                    echo "Verifying Docker containers..."
+                    bat 'docker ps'
+                }
             }
         }
     }
@@ -41,7 +53,10 @@ pipeline {
         always {
             echo 'Cleaning up Docker containers...'
             dir("${APP_DIR}") {
-                bat 'docker-compose down -v'
+                script {
+                    echo "Shutting down Docker containers..."
+                    bat 'docker-compose -f docker-compose.yml down -v'  // Explicitly specify the config file
+                }
             }
             cleanWs()
         }
