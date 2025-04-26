@@ -13,6 +13,13 @@ pipeline {
             }
         }
 
+        stage('Verify Docker Compose File') {
+            steps {
+                // List contents of the 'app' directory to verify the presence of Docker-compose.yml
+                bat 'dir C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\recommender-sys\\Recommender-sys\\app'
+            }
+        }
+
         stage('Build Docker Images') {
             steps {
                 bat 'docker-compose -f app/Docker-compose.yml build'
@@ -38,5 +45,6 @@ pipeline {
         }
     }
 }
+
 
 
