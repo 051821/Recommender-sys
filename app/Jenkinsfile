@@ -21,7 +21,7 @@ pipeline {
             steps {
                 script {
                     echo "Listing files in the workspace..."
-                    bat 'dir C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\recommender-sys\\Recommender-sys'  // Absolute path
+                    bat 'dir C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\recommender-sys\\Recommender-sys\\app'  // Absolute path
                 }
             }
         }
@@ -31,7 +31,8 @@ pipeline {
                 dir("${APP_DIR}") {
                     script {
                         echo "Building Docker containers..."
-                        bat 'docker-compose -f Docker-compose.yml build'
+                        // Corrected filename casing to match your file
+                        bat 'docker-compose -f Docker-compose.yml build'  // Corrected filename casing
                     }
                 }
             }
@@ -42,7 +43,8 @@ pipeline {
                 dir("${APP_DIR}") {
                     script {
                         echo "Running Docker containers..."
-                        bat 'docker-compose -f Docker-compose.yml up -d'
+                        // Corrected filename casing to match your file
+                        bat 'docker-compose -f Docker-compose.yml up -d'  // Corrected filename casing
                     }
                 }
             }
@@ -64,7 +66,8 @@ pipeline {
             dir("${APP_DIR}") {
                 script {
                     echo "Shutting down Docker containers..."
-                    bat 'docker-compose -f Docker-compose.yml down -v'
+                    // Corrected filename casing to match your file
+                    bat 'docker-compose -f Docker-compose.yml down -v'  // Corrected filename casing
                 }
             }
             cleanWs()
