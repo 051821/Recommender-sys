@@ -4,73 +4,37 @@ pipeline {
     environment {
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
-        APP_DIR = 'Recommender-sys/app'  // Adjust if needed
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                script {
-                    echo "Cloning repository from ${REPO_URL}..."
-                    git branch: "${BRANCH}", url: "${REPO_URL}"
-                }
+                git branch: "${BRANCH}", url: "${REPO_URL}"
             }
         }
 
-        stage('Verify Files') {
+        stage('Build Docker Images') {
             steps {
-                script {
-                    echo "Listing files in the workspace..."
-                    bat 'dir C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\recommender-sys\\Recommender-sys\\app'  // Absolute path
-                }
-            }
-        }
-
-        stage('Build Docker Containers') {
-            steps {
-                dir("${APP_DIR}") {
-                    script {
-                        echo "Building Docker containers..."
-                        // Corrected filename casing to match your file
-                        bat 'docker-compose -f Docker-compose.yml build'  // Corrected filename casing
-                    }
-                }
+                bat 'docker-compose -f app/Docker-compose.yml build'
             }
         }
 
         stage('Run Containers') {
             steps {
-                dir("${APP_DIR}") {
-                    script {
-                        echo "Running Docker containers..."
-                        // Corrected filename casing to match your file
-                        bat 'docker-compose -f Docker-compose.yml up -d'  // Corrected filename casing
-                    }
-                }
+                bat 'docker-compose -f app/Docker-compose.yml up -d'
             }
         }
 
-        stage('Verify Containers') {
+        stage('Check Running Containers') {
             steps {
-                script {
-                    echo "Verifying Docker containers..."
-                    bat 'docker ps'
-                }
+                bat 'docker ps'
             }
         }
     }
 
     post {
         always {
-            echo 'Cleaning up Docker containers...'
-            dir("${APP_DIR}") {
-                script {
-                    echo "Shutting down Docker containers..."
-                    // Corrected filename casing to match your file
-                    bat 'docker-compose -f Docker-compose.yml down -v'  // Corrected filename casing
-                }
-            }
-            cleanWs()
+            echo 'Pipeline finished!'
         }
     }
 }
