@@ -2,72 +2,144 @@ pipeline {
     agent any
 
     environment {
-        // Use forward slashes for cross-platform compatibility
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
+        DOCKER_COMPOSE_DIR = 'Recommender-sys/app'
     }
 
     stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    // Verify Git is available
+                    bat '''
+                        @echo off
+                        where git || (
+                            echo ERROR: Git is not installed or not in PATH
+                            exit /b 1
+                        )
+                        echo Git is available at:
+                        where git
+                    '''
+                }
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 script {
-                    // Clean workspace first (Windows compatible)
-                    bat 'if exist Recommender-sys rmdir /s /q Recommender-sys'
+                    cleanWs()
                     
-                    // Clone repository (public repo - no credentials needed)
-                    bat """
-                        git clone --depth 1 --branch %BRANCH% %REPO_URL%
-                        cd Recommender-sys
-                        dir /b  // Verify files exist
-                    """
+                    // Use Jenkins' built-in SCM checkout instead of manual git clone
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${BRANCH}"]],
+                        extensions: [],
+                        userRemoteConfigs: [[url: "${REPO_URL}"]]
+                    ])
+                    
+                    // Verify checkout
+                    bat '''
+                        @echo off
+                        echo Repository contents:
+                        dir /b
+                        if not exist "Recommender-sys" (
+                            echo ERROR: Repository structure not as expected
+                            exit /b 1
+                        )
+                    '''
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker-compose build
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}" || (
+                            echo ERROR: Cannot find ${DOCKER_COMPOSE_DIR} directory
+                            exit /b 1
+                        )
+                        docker-compose --version || (
+                            echo ERROR: docker-compose not available
+                            exit /b 1
+                        )
+                        echo Building Docker images...
+                        docker-compose build || (
+                            echo ERROR: Docker build failed
+                            exit /b 1
+                        )
+                    """
+                }
             }
         }
 
         stage('Run Containers') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker-compose up -d
-                    timeout /t 10 /nobreak  // Wait for containers to initialize
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}"
+                        echo Starting containers...
+                        docker-compose up -d || (
+                            echo ERROR: Failed to start containers
+                            exit /b 1
+                        )
+                        echo Waiting for containers to initialize...
+                        timeout /t 30 /nobreak >nul
+                        docker-compose ps
+                    """
+                }
             }
         }
 
         stage('Verify') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker ps --filter name=restaurant
-                    docker exec restaurant-container python -c "import pandas as pd; print('System ready!')"
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}"
+                        echo Running system checks...
+                        docker ps --filter name=restaurant
+                        docker exec restaurant-container python -c "import pandas as pd; print('System ready!')" || (
+                            echo ERROR: Verification failed
+                            exit /b 1
+                        )
+                    """
+                }
             }
         }
     }
 
     post {
         always {
-            bat '''
-                cd Recommender-sys\\app 2>nul && docker-compose down -v
-                docker system prune -f
-            '''
-            cleanWs()
+            script {
+                bat """
+                    @echo off
+                    echo Cleaning up...
+                    cd "${DOCKER_COMPOSE_DIR}" 2>nul && (
+                        docker-compose down -v
+                    )
+                    docker system prune -f
+                """
+                cleanWs()
+            }
         }
         failure {
-            emailext (
-                subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
-                body: "Check console output at ${env.BUILD_URL}console",
-                to: 'anushkasagar302@gmsil.com'
-            )
+            script {
+                // Fixed email address (was gmsil.com instead of gmail.com)
+                emailext (
+                    subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                    body: """Check console output at ${env.BUILD_URL}console
+                    
+                    Build Log: ${env.BUILD_URL}consoleText
+                    
+                    Failed stage: ${currentBuild.result}""",
+                    to: 'anushkasagar302@gmail.com',
+                    attachLog: true
+                )
+            }
         }
     }
 }
