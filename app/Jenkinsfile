@@ -2,189 +2,72 @@ pipeline {
     agent any
 
     environment {
-        // Repository configuration
+        // Use forward slashes for cross-platform compatibility
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
-        PROJECT_DIR = 'Recommender-sys'
-        DOCKER_COMPOSE_DIR = "${PROJECT_DIR}/app"
-        
-        // Proxy configuration (uncomment and adjust as needed)
-        HTTP_PROXY = 'http://proxy.yourcompany.com:8080'
-        HTTPS_PROXY = 'http://proxy.yourcompany.com:8080'
-        NO_PROXY = 'github.com,localhost,127.0.0.1'
-        
-        // Timeouts (seconds)
-        CONTAINER_START_TIMEOUT = '60'
     }
 
     stages {
-        stage('Initialize') {
-            steps {
-                script {
-                    echo "Starting pipeline for ${REPO_URL} on branch ${BRANCH}"
-                    echo "Java version: ${bat(script: 'java -version', returnStdout: true)}"
-                    echo "Docker version: ${bat(script: 'docker --version', returnStdout: true)}"
-                }
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 script {
-                    cleanWs()
+                    // Clean workspace first (Windows compatible)
+                    bat 'if exist Recommender-sys rmdir /s /q Recommender-sys'
                     
-                    // Configure git proxy if needed
+                    // Clone repository (public repo - no credentials needed)
                     bat """
-                        @echo off
-                        git config --global http.proxy %HTTP_PROXY% || echo "Proxy not configured"
-                        git config --global https.proxy %HTTPS_PROXY% || echo "Proxy not configured"
-                    """
-                    
-                    // Clone with retries and error handling
-                    retry(3) {
-                        bat """
-                            @echo off
-                            echo "Cloning repository..."
-                            git clone --depth 1 --branch %BRANCH% %REPO_URL% || (
-                                echo "ERROR: Git clone failed"
-                                exit /b 1
-                            )
-                            
-                            if not exist "%PROJECT_DIR%" (
-                                echo "ERROR: Project directory not found after clone"
-                                exit /b 1
-                            )
-                            
-                            echo "Repository contents:"
-                            dir /b "%PROJECT_DIR%"
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Images') {
-            steps {
-                script {
-                    bat """
-                        @echo off
-                        echo "Building Docker images..."
-                        cd "%DOCKER_COMPOSE_DIR%" || (
-                            echo "ERROR: Cannot find project directory"
-                            exit /b 1
-                        )
-                        
-                        docker-compose build --no-cache || (
-                            echo "ERROR: Docker build failed"
-                            exit /b 1
-                        )
-                        
-                        echo "Built images:"
-                        docker images | findstr "recommender"
+                        git clone --depth 1 --branch %BRANCH% %REPO_URL%
+                        cd Recommender-sys
+                        dir /b  // Verify files exist
                     """
                 }
             }
         }
 
-        stage('Deploy Containers') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    bat """
-                        @echo off
-                        echo "Starting containers..."
-                        cd "%DOCKER_COMPOSE_DIR%"
-                        
-                        docker-compose up -d || (
-                            echo "ERROR: Failed to start containers"
-                            exit /b 1
-                        )
-                        
-                        echo "Waiting for containers to initialize..."
-                        timeout /t %CONTAINER_START_TIMEOUT% /nobreak >nul
-                        
-                        echo "Container status:"
-                        docker-compose ps
-                    """
-                }
+                bat '''
+                    cd Recommender-sys\\app
+                    docker-compose build
+                '''
             }
         }
 
-        stage('System Verification') {
+        stage('Run Containers') {
             steps {
-                script {
-                    bat """
-                        @echo off
-                        echo "Running system checks..."
-                        cd "%DOCKER_COMPOSE_DIR%"
-                        
-                        echo "1. Checking container status:"
-                        docker-compose ps
-                        
-                        echo "2. Checking restaurant service:"
-                        docker exec restaurant-container python -c "import pandas as pd; print('Pandas version:', pd.__version__)" || (
-                            echo "ERROR: Restaurant service verification failed"
-                            exit /b 1
-                        )
-                        
-                        echo "3. Checking API health:"
-                        curl http://localhost:5000/health || (
-                            echo "WARNING: Health check failed (service may still be starting)"
-                        )
-                    """
-                }
+                bat '''
+                    cd Recommender-sys\\app
+                    docker-compose up -d
+                    timeout /t 10 /nobreak  // Wait for containers to initialize
+                '''
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                bat '''
+                    cd Recommender-sys\\app
+                    docker ps --filter name=restaurant
+                    docker exec restaurant-container python -c "import pandas as pd; print('System ready!')"
+                '''
             }
         }
     }
 
     post {
         always {
-            script {
-                echo "Pipeline completed with status: ${currentBuild.currentResult}"
-                
-                // Cleanup with error suppression
-                bat """
-                    @echo off
-                    echo "Cleaning up..."
-                    cd "%DOCKER_COMPOSE_DIR%" 2>nul && (
-                        echo "Stopping containers..."
-                        docker-compose down -v --remove-orphans
-                    )
-                    
-                    echo "Pruning Docker system..."
-                    docker system prune -f
-                """
-                
-                cleanWs()
-            }
+            bat '''
+                cd Recommender-sys\\app 2>nul && docker-compose down -v
+                docker system prune -f
+            '''
+            cleanWs()
         }
-        
-        success {
-            script {
-                echo "Build successful! ${env.BUILD_URL}"
-            }
-        }
-        
         failure {
-            script {
-                echo "Build failed! ${env.BUILD_URL}"
-                emailext (
-                    subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
-                    body: """
-                    Build URL: ${env.BUILD_URL}
-                    
-                    Error Details:
-                    ${currentBuild.rawBuild.getLog(100).join('\n')}
-                    """,
-                    to: 'anushkasagar302@gmail.com',
-                    attachLog: true
-                )
-            }
-        }
-        
-        unstable {
-            script {
-                echo "Build unstable! ${env.BUILD_URL}"
-            }
+            emailext (
+                subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                body: "Check console output at ${env.BUILD_URL}console",
+                to: 'anushkasagar302@gmsil.com'
+            )
         }
     }
 }
