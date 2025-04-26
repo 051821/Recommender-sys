@@ -2,23 +2,34 @@ pipeline {
     agent any
 
     environment {
-        // Use forward slashes for cross-platform compatibility
         REPO_URL = 'https://github.com/051821/Recommender-sys.git'
         BRANCH = 'main'
+        DOCKER_COMPOSE_DIR = 'Recommender-sys/app'
     }
 
     stages {
         stage('Checkout Code') {
             steps {
                 script {
-                    // Clean workspace first (Windows compatible)
-                    bat 'if exist Recommender-sys rmdir /s /q Recommender-sys'
+                    // Clean workspace
+                    cleanWs()
                     
-                    // Clone repository (public repo - no credentials needed)
+                    // Clone repository with error handling
                     bat """
-                        git clone --depth 1 --branch %BRANCH% %REPO_URL%
-                        cd Recommender-sys
-                        dir /b  // Verify files exist
+                        @echo off
+                        git --version || (
+                            echo ERROR: Git is not installed or not in PATH
+                            exit /b 1
+                        )
+                        git clone --depth 1 --branch %BRANCH% %REPO_URL% || (
+                            echo ERROR: Failed to clone repository
+                            exit /b 1
+                        )
+                        if not exist "Recommender-sys" (
+                            echo ERROR: Repository directory not found after clone
+                            exit /b 1
+                        )
+                        dir /b "Recommender-sys"
                     """
                 }
             }
@@ -26,48 +37,88 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker-compose build
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}" || (
+                            echo ERROR: Cannot find ${DOCKER_COMPOSE_DIR} directory
+                            exit /b 1
+                        )
+                        docker-compose --version || (
+                            echo ERROR: docker-compose not available
+                            exit /b 1
+                        )
+                        docker-compose build || (
+                            echo ERROR: Docker build failed
+                            exit /b 1
+                        )
+                    """
+                }
             }
         }
 
         stage('Run Containers') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker-compose up -d
-                    timeout /t 10 /nobreak  // Wait for containers to initialize
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}"
+                        docker-compose up -d || (
+                            echo ERROR: Failed to start containers
+                            exit /b 1
+                        )
+                        timeout /t 30 /nobreak >nul
+                        docker-compose ps
+                    """
+                }
             }
         }
 
         stage('Verify') {
             steps {
-                bat '''
-                    cd Recommender-sys\\app
-                    docker ps --filter name=restaurant
-                    docker exec restaurant-container python -c "import pandas as pd; print('System ready!')"
-                '''
+                script {
+                    bat """
+                        @echo off
+                        cd "${DOCKER_COMPOSE_DIR}"
+                        docker ps --filter name=restaurant
+                        docker exec restaurant-container python -c "import pandas as pd; print('System ready!')" || (
+                            echo ERROR: Verification failed
+                            exit /b 1
+                        )
+                    """
+                }
             }
         }
     }
 
     post {
         always {
-            bat '''
-                cd Recommender-sys\\app 2>nul && docker-compose down -v
-                docker system prune -f
-            '''
-            cleanWs()
+            script {
+                // Graceful cleanup even if previous steps failed
+                bat """
+                    @echo off
+                    cd "${DOCKER_COMPOSE_DIR}" 2>nul && (
+                        docker-compose down -v
+                        exit /b 0
+                    )
+                    docker system prune -f
+                """
+                cleanWs()
+            }
         }
         failure {
-            emailext (
-                subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
-                body: "Check console output at ${env.BUILD_URL}console",
-                to: 'anushkasagar302@gmsil.com'
-            )
+            script {
+                // Corrected email address (previous had a typo)
+                emailext (
+                    subject: "FAILED: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                    body: """Check console output at ${env.BUILD_URL}console
+                    
+                    Build Log: ${env.BUILD_URL}consoleText
+                    
+                    Failed stage: ${currentBuild.result}""",
+                    to: 'anushkasagar302@gmail.com'  // Fixed email typo
+                )
+            }
         }
     }
 }
