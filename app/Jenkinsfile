@@ -17,12 +17,21 @@ pipeline {
             }
         }
 
+        stage('Verify Files') {
+            steps {
+                script {
+                    echo "Listing files in ${APP_DIR}..."
+                    bat 'dir "${APP_DIR}"'
+                }
+            }
+        }
+
         stage('Build Docker Containers') {
             steps {
                 dir("${APP_DIR}") {
                     script {
                         echo "Building Docker containers..."
-                        bat 'docker-compose -f docker-compose.yml build'  // Explicitly specify the config file
+                        bat 'docker-compose -f Docker-compose.yml build'  // Explicitly specify the correct config file
                     }
                 }
             }
@@ -33,7 +42,7 @@ pipeline {
                 dir("${APP_DIR}") {
                     script {
                         echo "Running Docker containers..."
-                        bat 'docker-compose -f docker-compose.yml up -d'  // Explicitly specify the config file
+                        bat 'docker-compose -f Docker-compose.yml up -d'  // Explicitly specify the correct config file
                     }
                 }
             }
@@ -55,10 +64,11 @@ pipeline {
             dir("${APP_DIR}") {
                 script {
                     echo "Shutting down Docker containers..."
-                    bat 'docker-compose -f docker-compose.yml down -v'  // Explicitly specify the config file
+                    bat 'docker-compose -f Docker-compose.yml down -v'  // Explicitly specify the correct config file
                 }
             }
             cleanWs()
         }
     }
 }
+
