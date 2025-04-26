@@ -2,34 +2,38 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_PROJECT_NAME = 'recommender-backend'
+        REPO_URL = 'https://github.com/051821/Recommender-sys.git'
+        BRANCH = 'main'
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                // Ensure Git is available
-                bat 'git clone https://github.com/051821/Recommender-sys'
+                git branch: "${BRANCH}", url: "${REPO_URL}"
+            }
+        }
+
+        stage('Verify Docker Compose File') {
+            steps {
+                // List contents of the 'app' directory to verify the presence of Docker-compose.yml
+                bat 'dir C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\Recommender-sys\\app'
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                // Build Docker images using the correct compose file path
-                bat 'docker-compose -f Recommender-sys/app/Docker-compose.yml build'
+                bat 'docker-compose -f app/Docker-compose.yml build'
             }
         }
 
         stage('Run Containers') {
             steps {
-                // Start the containers in detached mode
-                bat 'docker-compose -f Recommender-sys/app/Docker-compose.yml up -d'
+                bat 'docker-compose -f app/Docker-compose.yml up -d'
             }
         }
 
         stage('Check Running Containers') {
             steps {
-                // Check the status of the running containers
                 bat 'docker ps'
             }
         }
@@ -41,7 +45,6 @@ pipeline {
         }
     }
 }
-
 
 
 
