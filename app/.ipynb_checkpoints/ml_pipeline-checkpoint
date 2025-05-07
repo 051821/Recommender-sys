@@ -1,0 +1,20 @@
+digraph ML_Pipeline {
+	graph [rankdir=LR]
+	A [label="Data Input
+(Raw Data)"]
+	B [label="Data Preprocessing
+(Cleaning, Scaling)"]
+	C [label="Model Training
+(ML Algorithm)"]
+	D [label="Model Evaluation
+(Metrics)"]
+	E [label="Dockerization
+(Containerize)"]
+	F [label="Jenkins Automation
+(CI/CD)"]
+	A -> B
+	B -> C
+	C -> D
+	D -> E
+	E -> F
+}
