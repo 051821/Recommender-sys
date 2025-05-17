@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Restaurant Recommendations</title>
+    <style>
+        table.data {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 20px auto;
+        }
+        table.data th, table.data td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        table.data th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Top Restaurant Recommendations</h1>
+
+    {% if table_html %}
+        <!-- Render the HTML table safely -->
+        {{ table_html | safe }}
+    {% else %}
+        <p>No recommendations found.</p>
+    {% endif %}
+
+    <br />
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>
+
