@@ -77,8 +77,6 @@ pandas
 
 scikit-learn
 
-jinja2
-
 Notes
 Ensure model_utiles.py correctly loads your ML model and data.
 
