@@ -5,7 +5,6 @@ FROM python:3.8-slim
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
@@ -13,19 +12,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory (matches your local `devpro2/app` folder)
+# Set working directory (should match where you COPY your app files)
 WORKDIR /app
 
 # Copy requirements and install
 COPY Requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r Requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r Requirements.txt
 
-# Copy the entire app folder (including Jupyter notebook and CSV)
+# Copy all app files into the container
 COPY . .
 
-# Expose Jupyter port (optional: only needed if running Jupyter)
-EXPOSE 8888
+# Expose the port your Flask app will run on
+EXPOSE 5000
 
-# Default command to run Jupyter Notebook
-CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
+# Default command to run Flask app
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]

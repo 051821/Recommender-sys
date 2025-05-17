@@ -2,16 +2,17 @@ version: '3.8'
 
 services:
   recommender:
-    build: . 
+    build: .
     image: restaurant-recommender:latest
     container_name: restaurant-container
     ports:
-      - "8888:8888"  # For Jupyter Notebook (optional)
+      - "5000:5000"   # Flask default port
     volumes:
-      - .:/app  
+      - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-    command: ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]  # Uncomment for Jupyter
+      - FLASK_APP=app.py     # Make sure your main Flask app file is app.py, else change accordingly
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5000"]
     networks:
       - recommender-network
 
