@@ -27,41 +27,33 @@ README.md                 # Project documentation
 How to Run Locally
 Install dependencies:
 
-nginx
+docker file
 Copy
 Edit
 pip install -r requirements.txt
 Run the Flask app:
 
-nginx
+dockerfile
 Copy
 Edit
 python app.py
-Open browser at http://127.0.0.1:5000
+Open browser at the port number given in the compose.yml file ater containerized or if not open Ip given in flask code
 
 How to Run with Docker
 Build the Docker image:
 
-nginx
+dockerfile
 Copy
 Edit
 docker build -t restaurant-recommender:latest .
 Run the Docker container:
 
-arduino
-Copy
-Edit
-docker run -p 5000:5000 restaurant-recommender:latest
-Visit http://127.0.0.1:5000 in your browser.
+
 
 How to Run with Docker Compose
 Run:
+docker-compose up -d
 
-css
-Copy
-Edit
-docker-compose up --build
-Visit http://127.0.0.1:5000
 
 Usage
 Enter your preferences on the home page form.
